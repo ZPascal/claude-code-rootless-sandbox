@@ -1,2 +1,5 @@
 *.log
 .DS_Store
+.idea/
+.audit-logs/
+sandbox-audit-*.log

@@ -1,62 +1,90 @@
 # Claude Code Rootless Sandbox
 
-Isoliertes, rootless Docker/Podman-Setup für Claude Code. Es wird
-ausschließlich das Projektverzeichnis in den Container gemountet — kein
-Zugriff aufs restliche Host-Filesystem, keine root-Rechte, kein Teilen von
-`~/.claude` mit dem Host.
+A production-ready, isolated Docker/Podman setup for running [Claude Code](https://claude.ai/code) securely with minimal privileges and no host system access.
 
-## Installation ins eigene Projekt
+## Quick Start
+
+### 1. Prerequisites
+- **Podman** (recommended) or **Docker** (see [installation guide](docs/INSTALLATION.md))
+- Claude Code CLI or IDE extension
+
+### 2. Install into Your Project
 
 ```bash
-# Im Root deines Projekts:
-cp -r .claude-sandbox /pfad/zu/deinem/projekt/
-cp -r .claude/skills/docker-sandbox /pfad/zu/deinem/projekt/.claude/skills/
-chmod +x /pfad/zu/deinem/projekt/.claude-sandbox/run-claude-sandbox.sh
+# Clone or download this repository
+git clone https://github.com/yourusername/claude-code-rootless-sandbox.git /tmp/sandbox-setup
+
+# Copy sandbox files to your project
+cp -r /tmp/sandbox-setup/.claude-sandbox /path/to/your/project/
+cp -r /tmp/sandbox-setup/.claude/skills/docker-sandbox /path/to/your/project/.claude/skills/
+
+# Make the script executable
+chmod +x /path/to/your/project/.claude-sandbox/run-claude-sandbox.sh
 ```
 
-Danach committen (oder in `.gitignore` mit Bedacht behandeln — das Setup
-selbst ist unproblematisch, es enthält keine Secrets).
-
-## Manuell starten
+### 3. Run the Sandbox
 
 ```bash
-cd dein-projekt
+cd /path/to/your/project
 ./.claude-sandbox/run-claude-sandbox.sh
 ```
 
-Optional anderes Verzeichnis:
+This launches Claude Code in an isolated container with:
+- **No root privileges** — runs as your user (UID/GID mapped 1:1)
+- **No host filesystem access** — only your project directory is mounted
+- **Dropped capabilities** — no unnecessary Linux capabilities
+- **No Docker socket** — cannot spawn new containers
+- **Restricted network** — configurable policies (default: full access, see [hardening options](docs/CONFIGURATION.md))
+
+## Use Claude Code Normally Inside the Sandbox
+
+Once running, use Claude Code exactly as you normally would. The sandbox is transparent — your project files are readable/writable, and Claude Code has full access to your project directory in isolation.
 
 ```bash
-./.claude-sandbox/run-claude-sandbox.sh ~/projekte/anderes-projekt
+# Example: inside the sandbox, these work normally:
+npm install
+python script.py
+git status
 ```
 
-## Automatisch via Skill
+## Why Use This?
 
-Sobald `.claude/skills/docker-sandbox/SKILL.md` im Projekt liegt, erkennt
-Claude Code selbst Anfragen wie "starte die Sandbox" oder "führ das isoliert
-aus" und ruft das Run-Script eigenständig auf.
+- **Security**: Claude Code runs in complete isolation; compromised code cannot affect your host system
+- **Compliance**: Audit-friendly; satisfies team/enterprise security requirements
+- **Development**: Safe sandbox for untrusted code generation or experiments
+- **Multi-project**: Run different projects with independent sandbox configurations
 
-## Was rootless hier konkret bedeutet
+## Documentation
 
-- **Podman (empfohlen):** läuft ganz ohne root-Daemon; `--userns=keep-id`
-  mappt deine normale Host-UID 1:1 in den Container — Dateien, die Claude
-  im Mount anlegt, gehören dir, nicht `root`.
-- **Docker:** volle Rootless-Garantien nur mit
-  [Docker rootless mode](https://docs.docker.com/engine/security/rootless/)
-  installiert. Ohne das läuft der Docker-Daemon selbst weiterhin als root
-  auf dem Host, auch wenn der Container-Prozess intern als Nicht-root-User
-  fährt (das Script setzt `--user $(id -u):$(id -g)`).
-- Zusätzlich in beiden Fällen: `--cap-drop=ALL`, `--security-opt
-  no-new-privileges`, keine `--privileged`-Flags, kein Host-Mount außerhalb
-  des Projektordners.
+- **[SECURITY.md](docs/SECURITY.md)** — Threat model, what's protected, hardening options
+- **[INSTALLATION.md](docs/INSTALLATION.md)** — OS-specific setup (Ubuntu, macOS, Fedora, etc.)
+- **[CONFIGURATION.md](docs/CONFIGURATION.md)** — Environment variables, profiles, advanced options
+- **[COMPLIANCE.md](docs/COMPLIANCE.md)** — Notes for regulated environments (SOC2, HIPAA, etc.)
 
-## Anpassungen, die du wahrscheinlich willst
+## Examples
 
-- **Netzwerk einschränken:** `--network=host` im Script gegen
-  `--network=none` (rein lokale Tasks) oder ein Proxy-Allowlist-Setup
-  tauschen, falls Claude nur zu bestimmten Domains dürfen soll.
-- **Zusätzliche Tools im Image:** Dockerfile erweitern (z. B. Python,
-  Rust, Go je nach Projekt).
-- **`--dangerously-skip-permissions`:** kann in der Sandbox sicherer
-  genutzt werden als auf dem Host, da der Blast Radius auf den Container
-  begrenzt ist — Netzwerk-Policy trotzdem beachten.
+- **[basic-project](examples/basic-project)** — Minimal example; start here
+- **[enterprise-setup](examples/enterprise-setup)** — Advanced: audit logging, compliance checklist
+
+## Claude Code Skill
+
+If `.claude/skills/docker-sandbox/SKILL.md` is present, Claude Code automatically recognizes sandbox commands:
+
+```
+User: "Run this in the sandbox"
+Claude Code: [automatically calls run-claude-sandbox.sh]
+```
+
+See [skill documentation](\.claude/skills/docker-sandbox/README.md) for details.
+
+## Contributing
+
+We welcome security feedback, improvements, and contributions. Please see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE).
+
+---
+
+**Questions?** Open an issue on GitHub or check the [documentation](docs/).

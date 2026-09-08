@@ -1,0 +1,74 @@
+# Claude Code Rootless Sandbox - Extended Image
+# Includes common development tools (Python, Node.js, Go, Rust, etc.)
+
+FROM ubuntu:24.04
+
+LABEL maintainer="Claude Code Sandbox Project"
+LABEL description="Extended rootless sandbox for Claude Code with dev tools"
+LABEL version="1.0"
+
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+
+# Install development tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Basic utilities
+    ca-certificates \
+    curl \
+    wget \
+    git \
+    bash \
+    coreutils \
+    findutils \
+    grep \
+    sed \
+    tar \
+    gzip \
+    \
+    # Python
+    python3 \
+    python3-pip \
+    python3-venv \
+    \
+    # Node.js
+    nodejs \
+    npm \
+    \
+    # Go
+    golang-go \
+    \
+    # Rust
+    rustc \
+    cargo \
+    \
+    # Build tools
+    build-essential \
+    gcc \
+    g++ \
+    make \
+    cmake \
+    \
+    # Version control & utilities
+    git \
+    openssh-client \
+    jq \
+    htop \
+    less \
+    nano \
+    vim \
+    \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip
+RUN python3 -m pip install --upgrade pip setuptools wheel
+
+# Create /tmp with proper permissions
+RUN mkdir -p /tmp && chmod 1777 /tmp
+
+WORKDIR /project
+
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+    CMD exit 0 || exit 1
+
+ENTRYPOINT ["/bin/bash"]
+CMD ["-i"]

@@ -1,64 +1,174 @@
 ---
 name: docker-sandbox
-description: Startet Claude Code in einer isolierten, rootless Docker/Podman-Sandbox, in der nur der Projekt-Code gemountet ist. Trigger bei Anfragen wie "starte die Sandbox", "führe das isoliert aus", "im Container laufen lassen", "rootless container", oder wenn der User explizit nach isolierter/sandboxed Ausführung fragt.
+description: Run Claude Code in a rootless Docker/Podman sandbox
+conditions:
+  - keywords: ["sandbox", "isolated", "rootless", "container", "docker", "podman"]
+  - phrases:
+      - "run this in sandbox"
+      - "run this isolated"
+      - "start the sandbox"
+      - "launch sandbox"
+      - "execute in sandbox"
+      - "run in container"
 ---
 
-# Docker/Podman Sandbox für Claude Code
+# Claude Code Rootless Sandbox Skill
 
-## Zweck
-Claude Code (oder eine Aufgabe darin) in einem isolierten, rootless Container
-ausführen, der ausschließlich Zugriff auf das aktuelle Projektverzeichnis hat.
-Kein Zugriff auf das restliche Host-Dateisystem, keine root-Rechte im
-Container, keine geteilten Credentials außer einem dedizierten,
-persistenten Config-Volume.
+This skill enables Claude Code to recognize requests to run tasks in an isolated sandbox environment.
 
-## Wann diese Skill nutzen
-- User bittet um isolierte/sandboxed Ausführung von Claude Code oder eines Tasks
-- User erwähnt "rootless", "container sandbox", "podman/docker sandbox"
-- Vor riskanten Operationen (z. B. `--dangerously-skip-permissions`,
-  Ausführen von unbekanntem/generiertem Code), wenn der User zusätzliche
-  Isolation wünscht
+## Activation
 
-## Voraussetzungen prüfen
-1. Prüfen, ob `podman` oder `docker` verfügbar ist (`command -v podman` /
-   `command -v docker`). Podman wird bevorzugt, da es nativ rootless ohne
-   Daemon läuft.
-2. Prüfen, ob `.claude-sandbox/Dockerfile` und
-   `.claude-sandbox/run-claude-sandbox.sh` im Projekt vorhanden sind. Falls
-   nicht, aus diesem Bundle kopieren.
+Claude Code recognizes requests like:
 
-## Ablauf
-1. `chmod +x .claude-sandbox/run-claude-sandbox.sh` (einmalig)
-2. Sandbox starten:
-   ```bash
-   ./.claude-sandbox/run-claude-sandbox.sh <projekt-pfad>
-   ```
-   Ohne Argument wird das aktuelle Verzeichnis gemountet.
-3. Das Script:
-   - baut das Image einmalig (UID/GID = Host-User, damit keine
-     root-Dateien entstehen)
-   - mountet **nur** `<projekt-pfad>` nach `/workspace`
-   - nutzt bei Podman `--userns=keep-id` für echtes rootless
-   - droppt alle Capabilities (`--cap-drop=ALL`)
-   - hält Claude-Auth/Config in einem separaten, persistenten Volume statt
-     im Host-`~/.claude` (Isolation zwischen Host und Sandbox)
+- "Run this in the sandbox"
+- "Execute this isolated"
+- "Start the rootless container"
+- "Launch the sandbox for this task"
 
-## Sicherheitshinweise, die der User kennen sollte
-- `--network=host` ist im Script standardmäßig aktiv (damit `claude` sich
-  authentifizieren/API-Calls machen kann). Wer zusätzlich Netzwerk
-  einschränken will, sollte das gegen ein Allowlist-Proxy-Setup tauschen
-  (z. B. wie in `trailofbits/claude-code-devcontainer`) oder `--network=none`
-  für rein lokale Tasks setzen.
-- Das Config-Volume ist zwischen Sandbox-Läufen persistent, aber getrennt
-  vom Host-`~/.claude` — nach dem ersten Start muss sich Claude Code in der
-  Sandbox einmal neu authentifizieren.
-- Bei Bedarf `--read-only` + gezielte `tmpfs`-Mounts ergänzen, wenn auch
-  das Container-Dateisystem außerhalb von `/workspace` unveränderlich sein
-  soll.
+## What It Does
 
-## Nicht tun
-- Nicht das gesamte Host-`$HOME` oder `/` mounten, auch nicht read-only,
-  außer der User verlangt es explizit.
-- Nicht `--privileged` verwenden.
-- Nicht den Host-`~/.claude`-Ordner direkt bind-mounten (Credentials/Session
-  von anderen Projekten würden sonst in der Sandbox landen).
+When activated, this skill:
+
+1. **Detects** a sandbox request in user input
+2. **Locates** the `./.claude-sandbox/run-claude-sandbox.sh` script in your project
+3. **Launches** the sandbox container with your project directory mounted
+4. **Executes** subsequent commands inside the isolated container
+
+## How It Works
+
+```
+User: "Run this in the sandbox"
+     ↓
+Claude: Recognizes sandbox request
+     ↓
+Claude: Calls ./.claude-sandbox/run-claude-sandbox.sh
+     ↓
+Container: Starts with project directory mounted
+     ↓
+User: Can run commands inside the sandbox
+```
+
+## Example Usage
+
+### Basic Sandbox Session
+
+```
+User: "Start the sandbox"
+
+Claude: [launches container]
+Sandbox: /project$
+
+User: npm install
+Sandbox: /project$ npm install
+         ✓ Installed dependencies
+
+User: npm run test
+Sandbox: /project$ npm run test
+         ✓ Tests pass
+```
+
+### Generate Code in Sandbox
+
+```
+User: "Write a Python script to process CSV files, run it in the sandbox"
+
+Claude: [generates script.py]
+        [launches sandbox]
+        [runs script.py]
+
+Output: [results from isolated execution]
+```
+
+## Configuration
+
+Customize sandbox behavior by setting environment variables:
+
+```bash
+# Restrict network
+SANDBOX_NETWORK=none ./run-claude-sandbox.sh
+
+# Limit resources
+SANDBOX_CPUS=2 SANDBOX_MEMORY=4g ./run-claude-sandbox.sh
+
+# Read-only mode (audit)
+SANDBOX_READONLY=true ./run-claude-sandbox.sh
+
+# Enable audit logging
+SANDBOX_AUDIT_LOG=true ./run-claude-sandbox.sh
+```
+
+See [`.claude-sandbox/config-defaults.env`](../../.claude-sandbox/config-defaults.env) for all options.
+
+## Security Properties
+
+The sandbox provides:
+
+- **Isolation** — Project directory is separate from host system
+- **Rootless execution** — No elevated privileges
+- **Dropped capabilities** — Linux capabilities restricted
+- **Namespace isolation** — Separate PID, network, filesystem namespaces
+- **Resource limits** — CPU and memory constraints (optional)
+
+See [`docs/SECURITY.md`](../../docs/SECURITY.md) for full security documentation.
+
+## Troubleshooting
+
+### "Sandbox script not found"
+
+Ensure `.claude-sandbox/run-claude-sandbox.sh` exists in your project root:
+
+```bash
+ls -la ./.claude-sandbox/run-claude-sandbox.sh
+```
+
+If missing, copy it from the repository:
+
+```bash
+cp -r /path/to/sandbox-repo/.claude-sandbox ./.claude-sandbox
+chmod +x ./.claude-sandbox/run-claude-sandbox.sh
+```
+
+### "Container runtime not found"
+
+Install Podman (recommended) or Docker:
+
+```bash
+# Ubuntu/Debian
+sudo apt install podman
+
+# Fedora
+sudo dnf install podman
+
+# macOS
+brew install podman
+```
+
+### "Permission denied"
+
+Make sure the script is executable:
+
+```bash
+chmod +x ./.claude-sandbox/run-claude-sandbox.sh
+```
+
+## Advanced Configuration
+
+For advanced use cases, see:
+
+- [CONFIGURATION.md](../../docs/CONFIGURATION.md) — Environment variables, profiles, hardening
+- [SECURITY.md](../../docs/SECURITY.md) — Threat model, audit logging
+- [COMPLIANCE.md](../../docs/COMPLIANCE.md) — Regulatory compliance (SOC2, HIPAA, PCI-DSS)
+
+## Disabling This Skill
+
+To disable the skill, simply remove or rename this file:
+
+```bash
+rm ./.claude/skills/docker-sandbox/SKILL.md
+```
+
+Claude Code will no longer recognize sandbox requests.
+
+---
+
+**Questions?** See the [main repository](https://github.com/yourusername/claude-code-rootless-sandbox) or open an issue.
