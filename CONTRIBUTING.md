@@ -30,17 +30,30 @@ Have an idea for improvement? Open a feature request issue:
 
 ### Security Reporting
 
-**Do not open public issues for security vulnerabilities.**
+Found a security vulnerability? **Open a private security advisory** on GitHub:
 
-Instead, email the maintainers at: **[security contact — to be added]**
+1. **Go to:** https://github.com/ZPascal/claude-code-rootless-sandbox/security/advisories
+2. **Click:** "Report a vulnerability"
+3. **Include:**
+   - Clear description of the vulnerability
+   - Steps to reproduce
+   - Potential impact (who could be affected, what damage could occur)
+   - Affected versions/configurations
+   - Your suggested fix (if any)
 
-Include:
-- Description of the vulnerability
-- Steps to reproduce
-- Potential impact
-- Your suggested fix (if any)
+**Why private advisories?**
+- Vulnerability details are hidden from the public until a patch is released
+- Maintainers are notified immediately
+- You get direct communication with the team
+- GitHub handles coordinated disclosure timeline
 
-We'll acknowledge receipt within 48 hours and work on a fix. Please allow 90 days for a patch before public disclosure.
+**Timeline:**
+- We'll acknowledge receipt within 48 hours
+- We'll work on a fix (typically 1-2 weeks)
+- We'll release a patched version
+- We'll publish a public security advisory with credit to you
+
+**Alternative:** If GitHub's private advisory feature is unavailable, open a regular issue with the title `[SECURITY]` and describe the issue in general terms, then contact maintainers directly through GitHub for private discussion.
 
 ## Development Setup
 
@@ -178,7 +191,3 @@ Contributors will be recognized in:
 ## Questions?
 
 Open an issue or reach out to the maintainers. We're here to help!
-
----
-
-**Thank you for contributing! 🎉**

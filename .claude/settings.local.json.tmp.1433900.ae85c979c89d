@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(chmod *)",
+      "Bash(bash tests/test-isolation.sh)",
+      "Bash(set -x)",
+      "Bash(docker run *)",
+      "Bash(bash tests/test-rootless.sh)",
+      "Bash(bash tests/test-permissions.sh)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(gh auth *)",
+      "Bash(gh repo *)",
+      "Bash(git commit -m 'docs: update security reporting to use GitHub private advisories *)",
+      "Bash(git push *)"
+    ]
+  }
+}

@@ -283,6 +283,6 @@ Use this checklist to assess sandbox compliance with your requirements:
 
 ---
 
-**Questions?** Consult your compliance/security team, or open an issue on GitHub with details (without revealing sensitive information).
+**Questions?** Open an issue on GitHub with details (without revealing sensitive information).
 
 **Next:** See [SECURITY.md](SECURITY.md) for technical security details.

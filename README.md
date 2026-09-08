@@ -56,7 +56,8 @@ git status
 
 ## Documentation
 
-- **[SECURITY.md](docs/SECURITY.md)** — Threat model, what's protected, hardening options
+- **[SECURITY.md](SECURITY.md)** — Security policy, vulnerability reporting, best practices
+- **[docs/SECURITY.md](docs/SECURITY.md)** — Threat model, what's protected, hardening options
 - **[INSTALLATION.md](docs/INSTALLATION.md)** — OS-specific setup (Ubuntu, macOS, Fedora, etc.)
 - **[CONFIGURATION.md](docs/CONFIGURATION.md)** — Environment variables, profiles, advanced options
 - **[COMPLIANCE.md](docs/COMPLIANCE.md)** — Notes for regulated environments (SOC2, HIPAA, etc.)
@@ -84,7 +85,3 @@ We welcome security feedback, improvements, and contributions. Please see [CONTR
 ## License
 
 Apache License 2.0 — see [LICENSE](LICENSE).
-
----
-
-**Questions?** Open an issue on GitHub or check the [documentation](docs/).
