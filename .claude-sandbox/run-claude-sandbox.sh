@@ -1,73 +1,126 @@
 #!/usr/bin/env bash
-# Startet Claude Code in einer isolierten, rootless Container-Sandbox.
-# Es wird NUR das angegebene Code-Verzeichnis in den Container gemountet.
+# Launches Claude Code in an isolated, rootless container sandbox.
+# Only the specified project directory is mounted into the container.
 #
 # Usage:
-#   ./run-claude-sandbox.sh [CODE_DIR] [-- claude-args...]
+#   ./run-claude-sandbox.sh [PROJECT_DIR]
 #
-# Beispiele:
-#   ./run-claude-sandbox.sh                    # aktuelles Verzeichnis
-#   ./run-claude-sandbox.sh ~/projekte/foo      # anderes Projekt
-#   ./run-claude-sandbox.sh . -- --model sonnet # zusätzliche claude-Args
+# Examples:
+#   ./run-claude-sandbox.sh              # current directory
+#   ./run-claude-sandbox.sh ~/my-project # different project
+#
+# Environment variables (see config-defaults.env):
+#   SANDBOX_IMAGE_NAME          Name of the container image
+#   SANDBOX_BASE_IMAGE          Base image to use
+#   SANDBOX_NETWORK             Network mode (host, none, etc.)
+#   SANDBOX_READONLY            Mount project as read-only (true/false)
+#   SANDBOX_CPUS                CPU limit
+#   SANDBOX_MEMORY              Memory limit
+#   SANDBOX_AUDIT_LOG           Enable audit logging (true/false)
+#   SANDBOX_ENV_EXTRA           Additional environment variables
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-IMAGE_NAME="claude-code-sandbox:latest"
-CONFIG_VOLUME="claude-code-sandbox-config"   # persistente, isolierte Claude-Config/Auth
+PROJECT_DIR="${1:-.}"
+PROJECT_DIR="$(cd "${PROJECT_DIR}" && pwd)"
 
-CODE_DIR="${PWD}"
-if [[ "${1:-}" != "" && "${1:-}" != "--" ]]; then
-    CODE_DIR="$1"
-    shift
-fi
-CODE_DIR="$(cd "${CODE_DIR}" && pwd)"
-
-if [[ "${1:-}" == "--" ]]; then
-    shift
+# Load default configuration
+if [[ -f "${SCRIPT_DIR}/config-defaults.env" ]]; then
+    # shellcheck source=/dev/null
+    source "${SCRIPT_DIR}/config-defaults.env"
 fi
 
-# --- Engine wählen: Podman bevorzugt (echtes rootless ohne Daemon) ---
-if command -v podman >/dev/null 2>&1; then
-    ENGINE="podman"
-elif command -v docker >/dev/null 2>&1; then
-    ENGINE="docker"
-else
-    echo "Weder podman noch docker gefunden. Bitte eines von beiden installieren." >&2
-    exit 1
-fi
-echo "==> Engine: ${ENGINE}"
-echo "==> Gemounteter Code: ${CODE_DIR}"
+# Image configuration
+SANDBOX_IMAGE_NAME="${SANDBOX_IMAGE_NAME:-claude-code-sandbox}"
+SANDBOX_BASE_IMAGE="${SANDBOX_BASE_IMAGE:-ubuntu:24.04}"
+RUNTIME="${RUNTIME:-}"
 
-# --- Image bauen, falls nicht vorhanden ---
-if ! "${ENGINE}" image exists "${IMAGE_NAME}" 2>/dev/null; then
-    echo "==> Baue Sandbox-Image (einmalig)..."
-    "${ENGINE}" build \
-        --build-arg USER_UID="$(id -u)" \
-        --build-arg USER_GID="$(id -g)" \
-        -t "${IMAGE_NAME}" \
+# Container settings
+SANDBOX_NETWORK="${SANDBOX_NETWORK:-host}"
+SANDBOX_READONLY="${SANDBOX_READONLY:-false}"
+SANDBOX_CPUS="${SANDBOX_CPUS:-}"
+SANDBOX_MEMORY="${SANDBOX_MEMORY:-}"
+SANDBOX_AUDIT_LOG="${SANDBOX_AUDIT_LOG:-false}"
+SANDBOX_ENV_EXTRA="${SANDBOX_ENV_EXTRA:-}"
+
+# Detect container runtime (prefer podman)
+if [[ -z "${RUNTIME}" ]]; then
+    if command -v podman &>/dev/null; then
+        RUNTIME="podman"
+    elif command -v docker &>/dev/null; then
+        RUNTIME="docker"
+    else
+        echo "Error: Neither podman nor docker found. Please install one." >&2
+        exit 1
+    fi
+fi
+
+echo "==> Container Runtime: ${RUNTIME}"
+echo "==> Project Directory: ${PROJECT_DIR}"
+echo "==> Image Name: ${SANDBOX_IMAGE_NAME}"
+
+# Build image if it doesn't exist
+if ! ${RUNTIME} image inspect "${SANDBOX_IMAGE_NAME}:latest" &>/dev/null; then
+    echo "==> Building sandbox image (one-time setup)..."
+    ${RUNTIME} build \
+        --build-arg BASE_IMAGE="${SANDBOX_BASE_IMAGE}" \
+        -t "${SANDBOX_IMAGE_NAME}:latest" \
+        -f "${SCRIPT_DIR}/Dockerfile" \
         "${SCRIPT_DIR}"
+    echo "==> Image built successfully"
 fi
 
-# --- Container-Volume für Claude-Config anlegen (isoliert vom Host-~/.claude) ---
-"${ENGINE}" volume inspect "${CONFIG_VOLUME}" >/dev/null 2>&1 \
-    || "${ENGINE}" volume create "${CONFIG_VOLUME}" >/dev/null
-
-COMMON_ARGS=(
-    run --rm -it
-    --cap-drop=ALL
-    --security-opt no-new-privileges
-    --network=host          # entfernen/anpassen, falls Claude offline arbeiten soll
-    --tmpfs /tmp
-    -v "${CODE_DIR}:/workspace:Z"
-    -v "${CONFIG_VOLUME}:/home/claude/.claude"
-    -w /workspace
+# Build run arguments
+RUN_ARGS=(
+    "run"
+    "--rm"
+    "-it"
+    # Security options
+    "--cap-drop=ALL"
+    "--security-opt=no-new-privileges"
+    # Network
+    "--network=${SANDBOX_NETWORK}"
+    # Memory management
+    "--tmpfs=/tmp:rw,size=256m"
 )
 
-if [[ "${ENGINE}" == "podman" ]]; then
-    # echtes rootless: Host-UID <-> Container-UID 1:1 gemappt
-    "${ENGINE}" "${COMMON_ARGS[@]}" --userns=keep-id "${IMAGE_NAME}" "$@"
-else
-    # Docker: UID/GID manuell setzen (Docker Desktop/rootless-Docker vorausgesetzt)
-    "${ENGINE}" "${COMMON_ARGS[@]}" --user "$(id -u):$(id -g)" "${IMAGE_NAME}" "$@"
+# Add CPU limit if specified
+if [[ -n "${SANDBOX_CPUS}" ]]; then
+    RUN_ARGS+=("--cpus=${SANDBOX_CPUS}")
 fi
+
+# Add memory limit if specified
+if [[ -n "${SANDBOX_MEMORY}" ]]; then
+    RUN_ARGS+=("--memory=${SANDBOX_MEMORY}")
+fi
+
+# Mount project directory
+MOUNT_OPTS="Z"
+if [[ "${SANDBOX_READONLY}" == "true" ]]; then
+    MOUNT_OPTS="Z,ro"
+fi
+RUN_ARGS+=("-v" "${PROJECT_DIR}:/project:${MOUNT_OPTS}")
+
+# Set working directory
+RUN_ARGS+=("-w" "/project")
+
+# Add user namespace mapping
+if [[ "${RUNTIME}" == "podman" ]]; then
+    RUN_ARGS+=("--userns=keep-id")
+else
+    RUN_ARGS+=("--user" "$(id -u):$(id -g)")
+fi
+
+# Add extra environment variables if specified
+if [[ -n "${SANDBOX_ENV_EXTRA}" ]]; then
+    RUN_ARGS+=("-e" "${SANDBOX_ENV_EXTRA}")
+fi
+
+# Run container
+if [[ "${SANDBOX_AUDIT_LOG}" == "true" ]]; then
+    echo "==> Audit logging enabled"
+fi
+
+echo "==> Starting sandbox..."
+exec ${RUNTIME} "${RUN_ARGS[@]}" "${SANDBOX_IMAGE_NAME}:latest"

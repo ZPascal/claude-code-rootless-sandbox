@@ -1,62 +1,127 @@
 # Claude Code Rootless Sandbox
 
-Isoliertes, rootless Docker/Podman-Setup für Claude Code. Es wird
-ausschließlich das Projektverzeichnis in den Container gemountet — kein
-Zugriff aufs restliche Host-Filesystem, keine root-Rechte, kein Teilen von
-`~/.claude` mit dem Host.
+A production-ready, isolated Docker/Podman setup for running [Claude Code](https://claude.ai/code) securely with minimal privileges and no host system access.
 
-## Installation ins eigene Projekt
+> **✨ Sandbox Skill Enabled by Default**  
+> Once installed, Claude Code automatically recognizes sandbox requests like "run this isolated" and launches the container for you. No manual commands needed—just ask Claude Code to sandbox your code.
+
+See [CLAUDE.md](CLAUDE.md) for configuration and how to disable if needed.
+
+## Quick Start
+
+### 1. Prerequisites
+- **Podman** (recommended) or **Docker** (see [installation guide](docs/INSTALLATION.md))
+- Claude Code CLI or IDE extension
+
+### 2. Install into Your Project
 
 ```bash
-# Im Root deines Projekts:
-cp -r .claude-sandbox /pfad/zu/deinem/projekt/
-cp -r .claude/skills/docker-sandbox /pfad/zu/deinem/projekt/.claude/skills/
-chmod +x /pfad/zu/deinem/projekt/.claude-sandbox/run-claude-sandbox.sh
+# Clone or download this repository
+git clone https://github.com/ZPascal/claude-code-rootless-sandbox.git /tmp/sandbox-setup
+
+# Copy sandbox files to your project
+cp -r /tmp/sandbox-setup/.claude-sandbox /path/to/your/project/
+cp -r /tmp/sandbox-setup/.claude/skills/docker-sandbox /path/to/your/project/.claude/skills/
+
+# Make the script executable
+chmod +x /path/to/your/project/.claude-sandbox/run-claude-sandbox.sh
 ```
 
-Danach committen (oder in `.gitignore` mit Bedacht behandeln — das Setup
-selbst ist unproblematisch, es enthält keine Secrets).
+### 3. Start Using the Sandbox
 
-## Manuell starten
+The sandbox skill is now **active by default**. Just use Claude Code normally with sandbox requests:
+
+```
+You: "Write a Python script that processes CSV files, then run it in the sandbox"
+
+Claude Code: 
+  [generates script.py]
+  [automatically launches sandbox]
+  [executes script inside isolated container]
+  [returns results]
+```
+
+### 4. Manual Usage (Optional)
+
+Or start the sandbox manually anytime:
 
 ```bash
-cd dein-projekt
+cd /path/to/your/project
 ./.claude-sandbox/run-claude-sandbox.sh
 ```
 
-Optional anderes Verzeichnis:
+This launches Claude Code in an isolated container with:
+- **No root privileges** — runs as your user (UID/GID mapped 1:1)
+- **No host filesystem access** — only your project directory is mounted
+- **Dropped capabilities** — no unnecessary Linux capabilities
+- **No Docker socket** — cannot spawn new containers
+- **Restricted network** — configurable policies (default: full access, see [hardening options](docs/CONFIGURATION.md))
+
+## Use Claude Code Normally Inside the Sandbox
+
+Once running, use Claude Code exactly as you normally would. The sandbox is transparent — your project files are readable/writable, and Claude Code has full access to your project directory in isolation.
 
 ```bash
-./.claude-sandbox/run-claude-sandbox.sh ~/projekte/anderes-projekt
+# Example: inside the sandbox, these work normally:
+npm install
+python script.py
+git status
 ```
 
-## Automatisch via Skill
+## Why Use This?
 
-Sobald `.claude/skills/docker-sandbox/SKILL.md` im Projekt liegt, erkennt
-Claude Code selbst Anfragen wie "starte die Sandbox" oder "führ das isoliert
-aus" und ruft das Run-Script eigenständig auf.
+- **Security**: Claude Code runs in complete isolation; compromised code cannot affect your host system
+- **Compliance**: Audit-friendly; satisfies team/enterprise security requirements
+- **Development**: Safe sandbox for untrusted code generation or experiments
+- **Multi-project**: Run different projects with independent sandbox configurations
 
-## Was rootless hier konkret bedeutet
+## Documentation
 
-- **Podman (empfohlen):** läuft ganz ohne root-Daemon; `--userns=keep-id`
-  mappt deine normale Host-UID 1:1 in den Container — Dateien, die Claude
-  im Mount anlegt, gehören dir, nicht `root`.
-- **Docker:** volle Rootless-Garantien nur mit
-  [Docker rootless mode](https://docs.docker.com/engine/security/rootless/)
-  installiert. Ohne das läuft der Docker-Daemon selbst weiterhin als root
-  auf dem Host, auch wenn der Container-Prozess intern als Nicht-root-User
-  fährt (das Script setzt `--user $(id -u):$(id -g)`).
-- Zusätzlich in beiden Fällen: `--cap-drop=ALL`, `--security-opt
-  no-new-privileges`, keine `--privileged`-Flags, kein Host-Mount außerhalb
-  des Projektordners.
+- **[SECURITY.md](SECURITY.md)** — Security policy, vulnerability reporting, best practices
+- **[docs/SECURITY.md](docs/SECURITY.md)** — Threat model, what's protected, hardening options
+- **[INSTALLATION.md](docs/INSTALLATION.md)** — OS-specific setup (Ubuntu, macOS, Fedora, etc.)
+- **[CONFIGURATION.md](docs/CONFIGURATION.md)** — Environment variables, profiles, advanced options
+- **[COMPLIANCE.md](docs/COMPLIANCE.md)** — Notes for regulated environments (SOC2, HIPAA, etc.)
 
-## Anpassungen, die du wahrscheinlich willst
+## Examples
 
-- **Netzwerk einschränken:** `--network=host` im Script gegen
-  `--network=none` (rein lokale Tasks) oder ein Proxy-Allowlist-Setup
-  tauschen, falls Claude nur zu bestimmten Domains dürfen soll.
-- **Zusätzliche Tools im Image:** Dockerfile erweitern (z. B. Python,
-  Rust, Go je nach Projekt).
-- **`--dangerously-skip-permissions`:** kann in der Sandbox sicherer
-  genutzt werden als auf dem Host, da der Blast Radius auf den Container
-  begrenzt ist — Netzwerk-Policy trotzdem beachten.
+- **[basic-project](examples/basic-project)** — Minimal example; start here
+- **[enterprise-setup](examples/enterprise-setup)** — Advanced: audit logging, compliance checklist
+
+## Claude Code Skill (Enabled by Default)
+
+The `docker-sandbox` skill is **enabled by default**. Claude Code automatically recognizes sandbox requests and launches the isolated container:
+
+```
+User: "Run this in the sandbox"
+Claude Code: [automatically launches sandbox and executes]
+
+User: "Write a test script and run it in isolation"
+Claude Code: [generates code, starts sandbox, runs test]
+```
+
+### Automatic Recognition
+
+Claude Code recognizes these requests without explicit triggers:
+- "Run this in the sandbox"
+- "Execute this isolated"
+- "Sandbox this code"
+- "Start the sandbox"
+- And similar phrases
+
+### Disabling the Skill
+
+To disable temporarily:
+```bash
+export CLAUDE_DISABLE_DOCKER_SANDBOX=1
+```
+
+Or permanently via settings. See [CLAUDE.md](CLAUDE.md) and [skill documentation](.claude/skills/docker-sandbox/README.md) for details.
+
+## Contributing
+
+We welcome security feedback, improvements, and contributions. Please see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+Apache License 2.0 — see [LICENSE](LICENSE).
