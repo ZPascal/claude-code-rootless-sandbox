@@ -57,6 +57,52 @@ This launches Claude Code in an isolated container with:
 - **No Docker socket** — cannot spawn new containers
 - **Restricted network** — configurable policies (default: full access, see [hardening options](docs/CONFIGURATION.md))
 
+## 4. Image Management
+
+### Default: Pre-built Images from GHCR
+
+By default, the sandbox pulls pre-built images from GitHub Container Registry (GHCR) for fast startup — no local build needed:
+
+```bash
+# Pulls image from ghcr.io/zpascal/claude-code-sandbox:latest
+./.claude-sandbox/run-claude-sandbox.sh
+```
+
+**Benefits:**
+- Fast startup (pull ~100MB vs. build 5+ minutes)
+- CI-tested and consistent across environments
+- Works offline if image already cached locally
+
+**Available Images:**
+- `ghcr.io/zpascal/claude-code-sandbox:latest` — **Minimal** (recommended for most users)
+- `ghcr.io/zpascal/claude-code-sandbox:latest-extended` — **Extended** (Python, Node, Go, Rust included)
+
+**Using Specific Versions:**
+```bash
+docker pull ghcr.io/zpascal/claude-code-sandbox:v1.0.0          # Minimal v1.0.0
+docker pull ghcr.io/zpascal/claude-code-sandbox:v1.0.0-extended # Extended v1.0.0
+```
+
+### Option: Rebuild Images Locally
+
+For development or when you need to modify the Dockerfiles, rebuild from your working tree:
+
+```bash
+# Rebuild once (this session only)
+CLAUDE_REBUILD_IMAGES=1 ./.claude-sandbox/run-claude-sandbox.sh
+
+# Or enable for this project permanently
+echo '{"skills": {"docker-sandbox": {"rebuild": true}}}' > .claude/settings.json
+```
+
+**When to rebuild:**
+- Developing or modifying Dockerfiles
+- Testing new image configurations
+- Working offline (if registry is unavailable)
+- Debugging build-time issues
+
+For full configuration options, see [CONFIGURATION.md](docs/CONFIGURATION.md).
+
 ## Use Claude Code Normally Inside the Sandbox
 
 Once running, use Claude Code exactly as you normally would. The sandbox is transparent — your project files are readable/writable, and Claude Code has full access to your project directory in isolation.
@@ -77,46 +123,51 @@ git status
 
 ## Documentation
 
-- **[SECURITY.md](SECURITY.md)** — Security policy, vulnerability reporting, best practices
-- **[docs/SECURITY.md](docs/SECURITY.md)** — Threat model, what's protected, hardening options
-- **[INSTALLATION.md](docs/INSTALLATION.md)** — OS-specific setup (Ubuntu, macOS, Fedora, etc.)
-- **[CONFIGURATION.md](docs/CONFIGURATION.md)** — Environment variables, profiles, advanced options
-- **[COMPLIANCE.md](docs/COMPLIANCE.md)** — Notes for regulated environments (SOC2, HIPAA, etc.)
+### Getting Started
+- **[INSTALLATION.md](docs/INSTALLATION.md)** — Step-by-step setup for Ubuntu, macOS, Fedora, and others
+- **[CLAUDE.md](CLAUDE.md)** — Claude Code integration, enabling/disabling the skill, rebuild configuration
+
+### Configuration & Usage
+- **[CONFIGURATION.md](docs/CONFIGURATION.md)** — All environment variables, image options, rebuild settings, hardening profiles
+- **[docs/TESTING.md](docs/TESTING.md)** — How to test the image build workflow locally
+
+### Security & Compliance
+- **[SECURITY.md](SECURITY.md)** — Security policy and vulnerability reporting
+- **[docs/SECURITY.md](docs/SECURITY.md)** — Threat model, protection guarantees, hardening options
+- **[COMPLIANCE.md](docs/COMPLIANCE.md)** — Guidance for regulated environments (SOC2, HIPAA, PCI-DSS, ISO 27001)
 
 ## Examples
 
 - **[basic-project](examples/basic-project)** — Minimal example; start here
 - **[enterprise-setup](examples/enterprise-setup)** — Advanced: audit logging, compliance checklist
 
-## Claude Code Skill (Enabled by Default)
+## About the Claude Code Skill
 
-The `docker-sandbox` skill is **enabled by default**. Claude Code automatically recognizes sandbox requests and launches the isolated container:
+The `docker-sandbox` skill is **enabled by default** in this project. Claude Code automatically recognizes your sandbox requests and launches the container:
 
-```
-User: "Run this in the sandbox"
-Claude Code: [automatically launches sandbox and executes]
-
-User: "Write a test script and run it in isolation"
-Claude Code: [generates code, starts sandbox, runs test]
-```
-
-### Automatic Recognition
-
-Claude Code recognizes these requests without explicit triggers:
+**Automatic Recognition:**
 - "Run this in the sandbox"
-- "Execute this isolated"
+- "Execute this isolated"  
 - "Sandbox this code"
 - "Start the sandbox"
-- And similar phrases
+- And similar natural language requests
 
-### Disabling the Skill
+**Example:**
+```
+You: "Write a Python script that installs packages and run it in the sandbox"
 
-To disable temporarily:
-```bash
-export CLAUDE_DISABLE_DOCKER_SANDBOX=1
+Claude Code:
+  [generates script.py]
+  [automatically launches sandbox]
+  [executes script in isolation]
+  [returns output with no impact on host]
 ```
 
-Or permanently via settings. See [CLAUDE.md](CLAUDE.md) and [skill documentation](.claude/skills/docker-sandbox/README.md) for details.
+**Customization:**
+- Temporarily disable: `export CLAUDE_DISABLE_DOCKER_SANDBOX=1`
+- Disable permanently: See [CLAUDE.md](CLAUDE.md)
+- Configure rebuild behavior: See [CONFIGURATION.md](docs/CONFIGURATION.md)
+- Enable extended tools: `SANDBOX_EXTENDED=true` in config or settings
 
 ## Contributing
 

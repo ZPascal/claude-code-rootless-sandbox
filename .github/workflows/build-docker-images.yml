@@ -1,0 +1,80 @@
+name: Build and Publish Docker Images
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+env:
+  IMAGE_NAME: ghcr.io/zpascal/claude-code-sandbox
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # `latest=auto` only moves :latest for a non-prerelease semver tag, so
+      # tags such as v0.1.0-test or v1.2.0-rc1 publish their version tag but
+      # leave :latest pointing at the last real release.
+      - name: Extract metadata for minimal image
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=auto
+          tags: |
+            type=semver,pattern={{raw}}
+
+      - name: Extract metadata for extended image
+        id: meta-extended
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=auto
+            suffix=-extended,onlatest=true
+          tags: |
+            type=semver,pattern={{raw}}
+
+      - name: Build and push minimal image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./.claude-sandbox/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push extended image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./.claude-sandbox/Dockerfile.extended
+          push: true
+          tags: ${{ steps.meta-extended.outputs.tags }}
+          labels: |
+            ${{ steps.meta-extended.outputs.labels }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max

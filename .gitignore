@@ -3,3 +3,4 @@
 .idea/
 .audit-logs/
 sandbox-audit-*.log
+.worktrees/
