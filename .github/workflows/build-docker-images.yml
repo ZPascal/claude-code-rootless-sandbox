@@ -34,7 +34,7 @@ jobs:
       # leave :latest pointing at the last real release.
       - name: Extract metadata for minimal image
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_NAME }}
           flavor: |
@@ -44,7 +44,7 @@ jobs:
 
       - name: Extract metadata for extended image
         id: meta-extended
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ${{ env.IMAGE_NAME }}
           flavor: |
