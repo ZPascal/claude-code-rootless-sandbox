@@ -54,7 +54,7 @@ jobs:
             type=semver,pattern={{raw}}
 
       - name: Build and push minimal image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./.claude-sandbox/Dockerfile
@@ -67,7 +67,7 @@ jobs:
           cache-to: type=gha,mode=max
 
       - name: Build and push extended image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v7
         with:
           context: .
           file: ./.claude-sandbox/Dockerfile.extended
