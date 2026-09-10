@@ -20,7 +20,35 @@ When triggered, Claude Code:
 2. Executes commands inside the isolated container
 3. Returns results from the sandboxed environment
 
+### Image Management
+
+By default, Claude Code pulls pre-built Docker images from GitHub Container Registry (GHCR). You can optionally rebuild images locally during development.
+
+**Default behavior (pull from GHCR):**
+- Images: `ghcr.io/zpascal/claude-code-sandbox:latest` (minimal) or `:latest-extended` (with tools)
+- Fast startup — pull ~100MB instead of building
+- Automatic fallback to local build if network unavailable
+
+**Rebuild locally instead:**
+
+Useful when developing the sandbox or testing Dockerfile changes:
+
+```bash
+# Temporary: rebuild once
+export CLAUDE_REBUILD_IMAGES=1
+
+# Permanent: project settings
+echo '{"skills":{"docker-sandbox":{"rebuild":true}}}' >> .claude/settings.json
+
+# Permanent: global settings  
+echo '{"skills":{"docker-sandbox":{"rebuild":true}}}' >> ~/.claude/settings.json
+```
+
+Configuration priority: environment variable > project settings > global settings.
+
 ### Disable the Skill
+
+To turn off automatic sandbox launching:
 
 **Temporarily (single session):**
 ```bash
@@ -42,6 +70,8 @@ export CLAUDE_DISABLE_DOCKER_SANDBOX=1
 ```bash
 rm .claude/skills/docker-sandbox/SKILL.md
 ```
+
+For complete image and rebuild configuration options, see [CONFIGURATION.md](docs/CONFIGURATION.md).
 
 ## Sandbox Configuration
 

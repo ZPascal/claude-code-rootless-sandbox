@@ -1,6 +1,14 @@
 # Configuration Guide
 
-This document explains all configuration options for the Claude Code rootless sandbox.
+Complete reference for configuring the Claude Code rootless sandbox.
+
+**Quick links:**
+- **New to the sandbox?** Start with [README.md](../README.md) and [CLAUDE.md](../CLAUDE.md)
+- **Want to rebuild images locally?** See [Docker Sandbox Rebuild Configuration](#docker-sandbox-rebuild-configuration) below
+- **Looking for security hardening?** See [docs/SECURITY.md](SECURITY.md)
+- **Need advanced options?** See [Configuration Files](#configuration-files) below
+
+---
 
 ## Configuration Files
 
@@ -61,6 +69,90 @@ RUNTIME=docker ./.claude-sandbox/run-claude-sandbox.sh
 
 # Disable network:
 SANDBOX_NETWORK=none ./.claude-sandbox/run-claude-sandbox.sh
+```
+
+> **Known limitation:** Environment variables passed to `run-claude-sandbox.sh` are currently overridden by `config-defaults.env`. This is a known limitation. Workaround: use `.claude/settings.json` or pass values via the command directly.
+
+### Docker Sandbox Rebuild Configuration
+
+**Option:** `skills.docker-sandbox.rebuild`
+
+**Type:** Boolean (default: `false`)
+
+**Description:** When enabled, the Docker sandbox skill rebuilds images locally from the current working tree instead of pulling pre-built images from GitHub Container Registry. Useful for development when modifying Dockerfiles or when working offline.
+
+**Configuration Methods:**
+
+#### Environment Variable (Session Override)
+
+```bash
+CLAUDE_REBUILD_IMAGES=1 claude
+```
+
+#### Project Settings (`.claude/settings.json`)
+
+```json
+{
+  "skills": {
+    "docker-sandbox": {
+      "rebuild": true
+    }
+  }
+}
+```
+
+#### Global User Settings
+
+```jsonc
+// ~/.claude/settings.json (or your Claude Code config location)
+{
+  "skills": {
+    "docker-sandbox": {
+      "rebuild": true
+    }
+  }
+}
+```
+
+**Priority:** Environment variable > Project settings > Global settings
+
+**Default Behavior:**
+
+- Without rebuild enabled: pulls pre-built images from `ghcr.io/zpascal/claude-code-sandbox:latest` (fast, requires internet)
+- If registry pull fails: automatically falls back to local build with warning
+
+**Examples:**
+
+Rebuild for current development session:
+
+```bash
+CLAUDE_REBUILD_IMAGES=1 claude /code
+```
+
+Enable rebuild for all Claude Code work in this project:
+
+```jsonc
+// Edit .claude/settings.json
+{
+  "skills": {
+    "docker-sandbox": {
+      "rebuild": true
+    }
+  }
+}
+```
+
+Enable rebuild globally (developer actively modifying sandbox):
+
+```jsonc
+// Edit ~/.claude/settings.json or your global Claude config
+{
+  "skills": {
+    "docker-sandbox": {
+      "rebuild": true
+    }
+  }
+}
 ```
 
 ## Profiles
