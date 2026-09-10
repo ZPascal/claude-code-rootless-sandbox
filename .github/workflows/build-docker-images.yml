@@ -3,7 +3,7 @@ name: Build and Publish Docker Images
 on:
   push:
     tags:
-      - 'v*'
+      - '*'
 
 env:
   IMAGE_NAME: ghcr.io/zpascal/claude-code-sandbox
