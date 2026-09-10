@@ -1,7 +1,7 @@
 # Claude Code Rootless Sandbox - Minimal Base Image
 # Designed for rootless container execution with security-hardened defaults
 
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 LABEL maintainer="Claude Code Sandbox Project"
 LABEL description="Rootless sandbox for Claude Code"

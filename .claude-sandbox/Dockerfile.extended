@@ -1,7 +1,7 @@
 # Claude Code Rootless Sandbox - Extended Image
 # Includes common development tools (Python, Node.js, Go, Rust, etc.)
 
-FROM ubuntu:24.04
+FROM ubuntu:26.04
 
 LABEL maintainer="Claude Code Sandbox Project"
 LABEL description="Extended rootless sandbox for Claude Code with dev tools"
