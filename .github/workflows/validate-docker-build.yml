@@ -1,0 +1,59 @@
+name: Validate Docker Builds
+
+on:
+  pull_request:
+    paths:
+      - '.claude-sandbox/Dockerfile*'
+      - '.github/workflows/validate-docker-build.yml'
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - '.claude-sandbox/Dockerfile*'
+      - '.github/workflows/validate-docker-build.yml'
+
+jobs:
+  validate-minimal:
+    name: Validate Minimal Image Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build minimal image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./.claude-sandbox/Dockerfile
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  validate-extended:
+    name: Validate Extended Image Build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build extended image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./.claude-sandbox/Dockerfile.extended
+          push: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
