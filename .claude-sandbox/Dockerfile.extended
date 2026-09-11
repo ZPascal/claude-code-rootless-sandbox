@@ -60,7 +60,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # Upgrade pip
-RUN python3 -m pip install --upgrade pip setuptools wheel
+RUN python3 -m pip install --upgrade --break-system-packages pip setuptools wheel
 
 # Create /tmp with proper permissions
 RUN mkdir -p /tmp && chmod 1777 /tmp
